@@ -8,7 +8,7 @@ on:
   workflow_dispatch: {}
 
 env:
-  # --- Config: Repo to Watch ---
+  # Configure repository to watch
   TARGET_REPO: "ComplianceAsCode/content" 
   STATE_FILE: ".github/state/last_seen_release"
 
