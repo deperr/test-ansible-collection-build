@@ -4,7 +4,7 @@ name: Check for new ComplianceAsCode Release
 
 on:
   schedule:
-    - cron: '0 0 * * 0' # Runs once per week at 00:00 Sunday
+    - cron: '0 2 5 * *' # Runs on the 5th of every month
   workflow_dispatch: {}
 
 env:
@@ -12,15 +12,15 @@ env:
   TARGET_REPO: "ComplianceAsCode/content" 
   STATE_FILE: ".github/state/last_seen_release"
 
-  # 1. Space-separated list of role names to copy from the 'out' directory
+  # Space-separated list of role names to copy from the 'out' directory
   #    The build script creates many, e.g., rhel9_stig, rhel9_cis, rhel9_anssi
-  ROLES_TO_COPY: "rhel9_stig rhel9_cis"
+  ROLES_TO_COPY: "rhel9_cui rhel9_stig rhel9_cis"
   
-  # 2. The directory in this repo to place the roles (standard for collections)
+  # The directory in this repo to place the roles
   ROLES_DIR: "roles"
   
   # 3. Ansible Galaxy metadata (only used to create a new galaxy.yml)
-  GALAXY_NAMESPACE: "test_namespace"
+  GALAXY_NAMESPACE: "dperrone_test"
   GALAXY_NAME: "compliance_roles"
 
 jobs:
@@ -30,10 +30,10 @@ jobs:
       contents: write
       
     steps:
-      - name: 🔔 Check out this repository
+      - name: Check out this repository
         uses: actions/checkout@v4
 
-      - name: 📡 Get latest release tag from ComplianceAsCode
+      - name: Get latest release tag from ComplianceAsCode
         id: get_release
         run: |
           TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" \
@@ -41,7 +41,7 @@ jobs:
           echo "Latest release on ${{ env.TARGET_REPO }} is: $TAG"
           echo "latest_tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: 📖 Get last processed tag from file
+      - name: Get last processed tag from file
         id: get_last_tag
         run: |
           if [ -f "${{ env.STATE_FILE }}" ]; then
@@ -50,7 +50,7 @@ jobs:
             echo "last_tag=''" >> $GITHUB_OUTPUT
           fi
         
-      - name: 🚀 Compare, Build, and Generate Collection
+      - name: Compare, Build, and Generate Collection
         id: compare
         if: steps.get_release.outputs.latest_tag != steps.get_last_tag.outputs.last_tag
         run: |
@@ -68,18 +68,16 @@ jobs:
           echo "Checking out new release tag"
           git checkout ${{ steps.get_release.outputs.latest_tag }}
           
-          echo "Building rhel9 product"
+          echo "Building the RHEL 9 roles"
           # This one build generates all RHEL9 roles (stig, cis, etc.)
           ./build_product rhel9
-          
-          echo "Generating Ansible collections "
           export PYTHONPATH=.
           utils/ansible_playbook_to_role.py --dry-run out --build-playbooks-dir build/ansible
           
           # Move back to the root of THIS repo
           cd .. 
           
-          echo "Assemble the Ansible Collection ---"
+          echo "Assembling the Ansible collection"
           
           # Create the 'roles' directory for the collection
           mkdir -p ${{ env.ROLES_DIR }}
@@ -88,7 +86,7 @@ jobs:
           echo "Cleaning old roles from ${{ env.ROLES_DIR }}/"
           rm -rf ${{ env.ROLES_DIR }}/*
           
-          # Loop through the roles you defined and copy them
+          # Loop through the defined roles and copy to the roles directory
           echo "Copying new roles: ${{ env.ROLES_TO_COPY }}"
           for role in ${{ env.ROLES_TO_COPY }}; do
             if [ -d "content/out/$role" ]; then
@@ -123,7 +121,6 @@ jobs:
           issues: ${{ github.server_url }}/${{ github.repository }}/issues
           EOF
           fi
-          # ---
           
           echo "Updating the state file"
           mkdir -p $(dirname "${{ env.STATE_FILE }}")
@@ -134,9 +131,5 @@ jobs:
         if: steps.compare.outputs.new_release_found == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Update Ansible Collection from Compliance as Code ${{ steps.get_release.outputs.latest_tag }}"
-          
-          # By removing 'file_pattern', the action will commit ALL
-          # modified and untracked files (e.g., roles/*, galaxy.yml, and the state file)
-          
+          commit_message: "Update Ansible Collection from Compliance as Code ${{ steps.get_release.outputs.latest_tag }}"        
           tagging_message: "auto-collection-${{ steps.get_release.outputs.latest_tag }}"
