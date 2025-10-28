@@ -125,6 +125,13 @@ jobs:
           issues: ${{ github.server_url }}/${{ github.repository }}/issues
           EOF
           fi
+
+          # Create the meta directory for Galaxy upload
+          mkdir -p meta
+          cat <<EOF > meta/runtime.yml
+          ---
+          requires_ansible: '>=2.9.10'
+          EOF
           
           echo "Updating the state file"
           mkdir -p $(dirname "${{ env.STATE_FILE }}")
