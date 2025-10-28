@@ -1,6 +1,6 @@
 # .github/workflows/check-compliance-release.yml
 
-name: Check for new ComplianceAsCode Release
+name: New Check for new ComplianceAsCode Release
 
 on:
   schedule:
